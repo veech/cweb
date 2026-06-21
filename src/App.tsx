@@ -53,9 +53,15 @@ export function App() {
       const restored: ThreadMessage[] = []
       const results: Record<string, ToolResult> = {}
       for (const item of h.items) {
-        if (item.role === 'user') restored.push({ id: newId(), role: 'user', text: item.text })
-        else if (item.role === 'assistant') restored.push({ id: newId(), role: 'assistant', blocks: item.blocks })
-        else results[item.toolUseId] = { content: item.content, isError: item.isError }
+        if (item.role === 'user') {
+          restored.push({ id: newId(), role: 'user', text: item.text })
+          continue
+        }
+        if (item.role === 'assistant') {
+          restored.push({ id: newId(), role: 'assistant', blocks: item.blocks })
+          continue
+        }
+        results[item.toolUseId] = { content: item.content, isError: item.isError }
       }
       setMessages(restored)
       setToolResults(results)
@@ -93,30 +99,31 @@ export function App() {
       return
     }
     if (event.kind === 'assistant') {
-      if (event.blocks.length)
-        setMessages((m) => {
-          // A single assistant message (one `msg_` id) can surface more than
-          // once in a turn — e.g. once for its text block, again when a
-          // tool_use block completes. Upsert by id and union blocks by
-          // signature so we neither create a duplicate React key nor
-          // duplicate/drop blocks, regardless of whether the SDK sends
-          // cumulative or incremental snapshots.
-          const idx = event.id ? m.findIndex((x) => x.id === event.id) : -1
-          if (idx === -1) return [...m, { id: event.id || newId(), role: 'assistant', blocks: event.blocks }]
-
-          const existing = m[idx] as AssistantMessage
-          const seen = new Set(existing.blocks.map(blockSig))
-          const blocks = [...existing.blocks]
-          for (const b of event.blocks)
-            if (!seen.has(blockSig(b))) {
-              seen.add(blockSig(b))
-              blocks.push(b)
-            }
-          const next = [...m]
-          next[idx] = { ...existing, blocks }
-          return next
-        })
       setLive({ text: '', thinking: '' })
+      if (!event.blocks.length) return
+      setMessages((m) => {
+        // A single assistant message (one `msg_` id) can surface more than
+        // once in a turn — e.g. once for its text block, again when a
+        // tool_use block completes. Upsert by id and union blocks by
+        // signature so we neither create a duplicate React key nor
+        // duplicate/drop blocks, regardless of whether the SDK sends
+        // cumulative or incremental snapshots.
+        const idx = event.id ? m.findIndex((x) => x.id === event.id) : -1
+        if (idx === -1) return [...m, { id: event.id || newId(), role: 'assistant', blocks: event.blocks }]
+
+        const existing = m[idx] as AssistantMessage
+        const seen = new Set(existing.blocks.map(blockSig))
+        const blocks = [...existing.blocks]
+        for (const b of event.blocks) {
+          const sig = blockSig(b)
+          if (seen.has(sig)) continue
+          seen.add(sig)
+          blocks.push(b)
+        }
+        const next = [...m]
+        next[idx] = { ...existing, blocks }
+        return next
+      })
       return
     }
     if (event.kind === 'tool_result') {
@@ -132,10 +139,9 @@ export function App() {
         durationMs: event.durationMs,
         numTurns: event.numTurns
       })
-      if (event.isError) {
-        setError(event.result || 'the turn ended with an error')
-        setStatus('error')
-      }
+      if (!event.isError) return
+      setError(event.result || 'the turn ended with an error')
+      setStatus('error')
       return
     }
     if (event.kind === 'error') {

@@ -27,21 +27,6 @@ const DOT_CLASS: Record<Status, string> = {
   error: 'bg-destructive'
 }
 
-interface MetaProps {
-  label: string
-  value: string
-}
-
-function Meta(props: MetaProps) {
-  const { label, value } = props
-  return (
-    <span className="flex items-center gap-1">
-      <span className="text-muted-foreground/60">{label}</span>
-      <span className="font-mono text-foreground/80">{value}</span>
-    </span>
-  )
-}
-
 export function StatusBar(props: Props) {
   const { cwd, model, permissionMode, sessionId, status, onReset } = props
   const dir = cwd ? cwd.split('/').filter(Boolean).slice(-2).join('/') : '—'
@@ -72,5 +57,20 @@ export function StatusBar(props: Props) {
         New thread
       </Button>
     </header>
+  )
+}
+
+interface MetaProps {
+  label: string
+  value: string
+}
+
+function Meta(props: MetaProps) {
+  const { label, value } = props
+  return (
+    <span className="flex items-center gap-1">
+      <span className="text-muted-foreground/60">{label}</span>
+      <span className="font-mono text-foreground/80">{value}</span>
+    </span>
   )
 }
