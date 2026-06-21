@@ -53,6 +53,21 @@ bun link           # register the `cweb` command on your PATH (~/.bun/bin)
 - Short circuit loops when possible
 - Avoid nested ifs
 - Entry point functions should come first, followed by helper functions used by them below
+- Don't inline prop types or destructuring. Declare a `Props` interface, accept a single `props` parameter, and destructure inside the function body:
+
+```tsx
+// Wrong
+export function App({ propA }: { propA: number }) {}
+
+// Right
+interface AppProps {
+  propA: number
+}
+
+export function App(props: AppProps) {
+  const { propA } = props
+}
+```
 
 ## Git
 
