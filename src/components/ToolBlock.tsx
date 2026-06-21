@@ -3,6 +3,8 @@ import { Check, ChevronRight, LoaderCircle, X } from "lucide-react";
 import type { ToolResult } from "../lib/thread.ts";
 import { cn } from "../lib/utils.ts";
 import { formatInput, toolSummary } from "../lib/thread.ts";
+import { diffStat, toolDiff } from "../lib/diff.ts";
+import { DiffView } from "./Diff.tsx";
 
 type Props = {
   name: string;
@@ -14,9 +16,12 @@ const codeBase =
   "max-h-80 overflow-auto whitespace-pre-wrap break-words rounded-md border border-border bg-muted/40 p-2.5 font-mono text-xs leading-relaxed scrollbar-thin";
 
 export function ToolBlock({ name, input, result }: Props) {
-  const [open, setOpen] = useState(false);
+  const diff = toolDiff(name, input);
+  // File edits are the thing that's hard to read collapsed, so show them open.
+  const [open, setOpen] = useState(diff !== null);
   const running = !result;
   const error = result?.isError ?? false;
+  const stat = diff ? diffStat(diff.hunks) : null;
 
   return (
     <div
@@ -41,6 +46,13 @@ export function ToolBlock({ name, input, result }: Props) {
         <span className="min-w-0 flex-1 truncate font-mono text-muted-foreground">
           {toolSummary(name, input)}
         </span>
+        {stat && (stat.added > 0 || stat.deleted > 0) && (
+          <span className="shrink-0 font-mono text-[11px] tabular-nums">
+            {stat.added > 0 && <span className="text-emerald-400">+{stat.added}</span>}
+            {stat.added > 0 && stat.deleted > 0 && " "}
+            {stat.deleted > 0 && <span className="text-red-400">-{stat.deleted}</span>}
+          </span>
+        )}
         <ChevronRight
           className={cn(
             "size-3.5 shrink-0 text-muted-foreground transition-transform",
@@ -49,29 +61,44 @@ export function ToolBlock({ name, input, result }: Props) {
         />
       </button>
 
-      {open && (
-        <div className="flex flex-col gap-3 border-t border-border px-3 py-3 duration-200 animate-in fade-in slide-in-from-top-1">
-          <div>
-            <SectionLabel>input</SectionLabel>
-            <pre className={cn(codeBase, "text-muted-foreground")}>{formatInput(input)}</pre>
+      {/* A successful edit needs no labels or padding — the diff is the whole
+          panel, flush to the card edges. Everything else (inputs, errors, the
+          rare diff-plus-error) keeps the padded, labelled section layout. */}
+      {open &&
+        (diff && !error ? (
+          <div className="duration-200 animate-in fade-in slide-in-from-top-1">
+            <DiffView hunks={diff.hunks} flush />
           </div>
-          {result && (
-            <div>
-              <SectionLabel>{error ? "error" : "result"}</SectionLabel>
-              <pre
-                className={cn(
-                  codeBase,
-                  error
-                    ? "border-destructive/30 bg-destructive/10 text-destructive"
-                    : "text-foreground/80",
-                )}
-              >
-                {result.content || "(empty)"}
-              </pre>
-            </div>
-          )}
-        </div>
-      )}
+        ) : (
+          <div className="flex flex-col gap-3 border-t border-border px-3 py-3 duration-200 animate-in fade-in slide-in-from-top-1">
+            {diff ? (
+              <div>
+                <SectionLabel>diff</SectionLabel>
+                <DiffView hunks={diff.hunks} />
+              </div>
+            ) : (
+              <div>
+                <SectionLabel>input</SectionLabel>
+                <pre className={cn(codeBase, "text-muted-foreground")}>{formatInput(input)}</pre>
+              </div>
+            )}
+            {result && (
+              <div>
+                <SectionLabel>{error ? "error" : "result"}</SectionLabel>
+                <pre
+                  className={cn(
+                    codeBase,
+                    error
+                      ? "border-destructive/30 bg-destructive/10 text-destructive"
+                      : "text-foreground/80",
+                  )}
+                >
+                  {result.content || "(empty)"}
+                </pre>
+              </div>
+            )}
+          </div>
+        ))}
     </div>
   );
 }
