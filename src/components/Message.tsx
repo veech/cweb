@@ -3,22 +3,33 @@ import type { Block } from "../../shared/protocol.ts";
 import type { ThreadMessage, ToolResult } from "../lib/thread.ts";
 import { ToolBlock } from "./ToolBlock.tsx";
 
-type Props = {
+interface Props {
   message: ThreadMessage;
   toolResults: Record<string, ToolResult>;
-};
+}
 
 // Shared atoms — reused by the live streaming draft in Thread.tsx so the
 // in-flight turn renders identically to a settled one.
 export const proseClass = "whitespace-pre-wrap break-words text-[15px] leading-7 text-foreground";
 
-export function RoleLabel({ children }: { children: ReactNode }) {
+interface RoleLabelProps {
+  children: ReactNode;
+}
+
+export function RoleLabel(props: RoleLabelProps) {
+  const { children } = props;
   return <div className="text-xs font-medium text-muted-foreground">{children}</div>;
 }
 
 // Assistant prose with an optional blinking caret — used for the live draft and
 // the pending-turn placeholder while a turn is in flight.
-export function ProseLive({ text, caret }: { text: string; caret?: boolean }) {
+interface ProseLiveProps {
+  text: string;
+  caret?: boolean;
+}
+
+export function ProseLive(props: ProseLiveProps) {
+  const { text, caret } = props;
   return (
     <div className={proseClass}>
       {text}
@@ -29,7 +40,12 @@ export function ProseLive({ text, caret }: { text: string; caret?: boolean }) {
   );
 }
 
-export function ThinkingBlock({ text }: { text: string }) {
+interface ThinkingBlockProps {
+  text: string;
+}
+
+export function ThinkingBlock(props: ThinkingBlockProps) {
+  const { text } = props;
   return (
     <div className="whitespace-pre-wrap break-words border-l-2 border-dashed border-border pl-3 text-xs leading-relaxed text-muted-foreground">
       <div className="mb-1 font-mono text-[10px] uppercase tracking-wider text-muted-foreground/70">
@@ -40,7 +56,8 @@ export function ThinkingBlock({ text }: { text: string }) {
   );
 }
 
-export function Message({ message, toolResults }: Props) {
+export function Message(props: Props) {
+  const { message, toolResults } = props;
   if (message.role === "user")
     return (
       <div className="flex flex-col gap-1.5">
@@ -63,13 +80,13 @@ export function Message({ message, toolResults }: Props) {
   );
 }
 
-function BlockView({
-  block,
-  toolResults,
-}: {
+interface BlockViewProps {
   block: Block;
   toolResults: Record<string, ToolResult>;
-}) {
+}
+
+function BlockView(props: BlockViewProps) {
+  const { block, toolResults } = props;
   if (block.type === "text") return <div className={proseClass}>{block.text}</div>;
 
   if (block.type === "thinking") return <ThinkingBlock text={block.text} />;

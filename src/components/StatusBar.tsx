@@ -3,14 +3,14 @@ import type { Status } from "../lib/thread.ts";
 import { cn } from "../lib/utils.ts";
 import { Button } from "./ui/button.tsx";
 
-type Props = {
+interface Props {
   cwd: string | null;
   model: string | null;
   permissionMode: string | null;
   sessionId: string | null;
   status: Status;
   onReset: () => void;
-};
+}
 
 const STATUS_LABEL: Record<Status, string> = {
   idle: "ready",
@@ -26,7 +26,13 @@ const DOT_CLASS: Record<Status, string> = {
   error: "bg-destructive",
 };
 
-function Meta({ label, value }: { label: string; value: string }) {
+interface MetaProps {
+  label: string;
+  value: string;
+}
+
+function Meta(props: MetaProps) {
+  const { label, value } = props;
   return (
     <span className="flex items-center gap-1">
       <span className="text-muted-foreground/60">{label}</span>
@@ -35,7 +41,8 @@ function Meta({ label, value }: { label: string; value: string }) {
   );
 }
 
-export function StatusBar({ cwd, model, permissionMode, sessionId, status, onReset }: Props) {
+export function StatusBar(props: Props) {
+  const { cwd, model, permissionMode, sessionId, status, onReset } = props;
   const dir = cwd ? cwd.split("/").filter(Boolean).slice(-2).join("/") : "—";
 
   return (

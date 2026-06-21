@@ -6,16 +6,17 @@ import { formatInput, toolSummary } from "../lib/thread.ts";
 import { diffStat, toolDiff } from "../lib/diff.ts";
 import { DiffView } from "./Diff.tsx";
 
-type Props = {
+interface Props {
   name: string;
   input: unknown;
   result: ToolResult | undefined;
-};
+}
 
 const codeBase =
   "max-h-80 overflow-auto whitespace-pre-wrap break-words rounded-md border border-border bg-muted/40 p-2.5 font-mono text-xs leading-relaxed scrollbar-thin";
 
-export function ToolBlock({ name, input, result }: Props) {
+export function ToolBlock(props: Props) {
+  const { name, input, result } = props;
   const diff = toolDiff(name, input);
   // File edits are the thing that's hard to read collapsed, so show them open.
   const [open, setOpen] = useState(diff !== null);
@@ -103,7 +104,12 @@ export function ToolBlock({ name, input, result }: Props) {
   );
 }
 
-function SectionLabel({ children }: { children: string }) {
+interface SectionLabelProps {
+  children: string;
+}
+
+function SectionLabel(props: SectionLabelProps) {
+  const { children } = props;
   return (
     <div className="mb-1.5 font-mono text-[10px] uppercase tracking-wider text-muted-foreground/70">
       {children}

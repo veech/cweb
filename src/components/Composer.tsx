@@ -2,16 +2,17 @@ import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { ArrowUp, Square } from "lucide-react";
 import { Button } from "./ui/button.tsx";
 
-type Props = {
+interface Props {
   busy: boolean;
   onSend: (text: string) => void;
   onStop: () => void;
-};
+}
 
 const kbd =
   "inline-flex min-w-4 justify-center rounded border border-border bg-secondary px-1 py-0.5 font-mono text-[10px] text-muted-foreground shadow-[0_1px_0_rgba(0,0,0,0.35)]";
 
-export function Composer({ busy, onSend, onStop }: Props) {
+export function Composer(props: Props) {
+  const { busy, onSend, onStop } = props;
   const [value, setValue] = useState("");
   const ref = useRef<HTMLTextAreaElement>(null);
 

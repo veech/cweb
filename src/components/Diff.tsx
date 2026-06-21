@@ -5,7 +5,13 @@ import { cn } from "../lib/utils.ts";
 // and tinted rows. Long lines wrap; tall diffs scroll within a bounded box.
 // `flush` drops the rounded border so the diff can fill its container edge to
 // edge (used when the diff *is* the expanded tool panel).
-export function DiffView({ hunks, flush = false }: { hunks: DiffHunk[]; flush?: boolean }) {
+interface DiffViewProps {
+  hunks: DiffHunk[];
+  flush?: boolean;
+}
+
+export function DiffView(props: DiffViewProps) {
+  const { hunks, flush = false } = props;
   return (
     <div
       className={cn(
@@ -29,7 +35,12 @@ export function DiffView({ hunks, flush = false }: { hunks: DiffHunk[]; flush?: 
   );
 }
 
-function DiffRow({ line }: { line: DiffLine }) {
+interface DiffRowProps {
+  line: DiffLine;
+}
+
+function DiffRow(props: DiffRowProps) {
+  const { line } = props;
   const sign = line.type === "add" ? "+" : line.type === "del" ? "-" : "";
   return (
     <div

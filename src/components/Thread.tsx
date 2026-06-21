@@ -6,7 +6,7 @@ import { Message, ProseLive, RoleLabel, ThinkingBlock } from "./Message.tsx";
 type LiveDraft = { text: string; thinking: string };
 type ResultMeta = { costUsd: number; durationMs: number; numTurns: number } | null;
 
-type Props = {
+interface Props {
   scrollRef: Ref<HTMLDivElement>;
   onScroll: UIEventHandler<HTMLDivElement>;
   messages: ThreadMessage[];
@@ -15,18 +15,10 @@ type Props = {
   status: Status;
   lastResult: ResultMeta;
   error: string | null;
-};
+}
 
-export function Thread({
-  scrollRef,
-  onScroll,
-  messages,
-  toolResults,
-  live,
-  status,
-  lastResult,
-  error,
-}: Props) {
+export function Thread(props: Props) {
+  const { scrollRef, onScroll, messages, toolResults, live, status, lastResult, error } = props;
   const busy = status === "thinking" || status === "streaming";
   const hasLive = busy && (live.text.length > 0 || live.thinking.length > 0);
   const empty = messages.length === 0 && !hasLive && !error;
