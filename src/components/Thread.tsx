@@ -2,7 +2,7 @@ import type { Ref, UIEventHandler } from 'react'
 
 import type { Status, ThreadMessage, ToolResult } from '../lib/thread.ts'
 import { formatCost, formatDuration } from '../lib/thread.ts'
-import { Message, ProseLive, RoleLabel, ThinkingBlock } from './Message.tsx'
+import { Message, ProseLive, ThinkingBlock } from './Message.tsx'
 
 type LiveDraft = { text: string; thinking: string }
 type ResultMeta = { costUsd: number; durationMs: number; numTurns: number } | null
@@ -40,21 +40,13 @@ export function Thread(props: Props) {
         ))}
 
         {hasLive && (
-          <div className="flex flex-col gap-2">
-            <RoleLabel>claude</RoleLabel>
-            <div className="flex flex-col gap-3">
-              {live.thinking && <ThinkingBlock text={live.thinking} />}
-              <ProseLive text={live.text} caret />
-            </div>
+          <div className="flex flex-col gap-3">
+            {live.thinking && <ThinkingBlock text={live.thinking} />}
+            <ProseLive text={live.text} caret />
           </div>
         )}
 
-        {busy && !hasLive && (
-          <div className="flex flex-col gap-2">
-            <RoleLabel>claude</RoleLabel>
-            <ProseLive text="" caret />
-          </div>
-        )}
+        {busy && !hasLive && <ProseLive text="" caret />}
 
         {!busy && lastResult && (
           <div className="flex gap-4 pt-1 font-mono text-[11px] text-muted-foreground">

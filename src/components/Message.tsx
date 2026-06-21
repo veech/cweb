@@ -1,5 +1,3 @@
-import type { ReactNode } from 'react'
-
 import type { Block } from '../../shared/protocol.ts'
 import type { ThreadMessage, ToolResult } from '../lib/thread.ts'
 import { ToolBlock } from './ToolBlock.tsx'
@@ -12,15 +10,6 @@ interface Props {
 // Shared atoms — reused by the live streaming draft in Thread.tsx so the
 // in-flight turn renders identically to a settled one.
 export const proseClass = 'whitespace-pre-wrap break-words text-[15px] leading-7 text-foreground'
-
-interface RoleLabelProps {
-  children: ReactNode
-}
-
-export function RoleLabel(props: RoleLabelProps) {
-  const { children } = props
-  return <div className="text-xs font-medium text-muted-foreground">{children}</div>
-}
 
 // Assistant prose with an optional blinking caret — used for the live draft and
 // the pending-turn placeholder while a turn is in flight.
@@ -57,20 +46,16 @@ export function Message(props: Props) {
   const { message, toolResults } = props
   if (message.role === 'user')
     return (
-      <div className="flex flex-col gap-1.5">
-        <RoleLabel>you</RoleLabel>
-        <div className="whitespace-pre-wrap break-words border-l-2 border-border pl-3 text-sm text-muted-foreground">{message.text}</div>
+      <div className="flex justify-end">
+        <div className="max-w-[85%] whitespace-pre-wrap break-words rounded-2xl bg-secondary px-4 py-2.5 text-[15px] leading-7 text-secondary-foreground">{message.text}</div>
       </div>
     )
 
   return (
-    <div className="flex flex-col gap-2">
-      <RoleLabel>claude</RoleLabel>
-      <div className="flex flex-col gap-3">
-        {message.blocks.map((block, idx) => (
-          <BlockView key={idx} block={block} toolResults={toolResults} />
-        ))}
-      </div>
+    <div className="flex flex-col gap-3">
+      {message.blocks.map((block, idx) => (
+        <BlockView key={idx} block={block} toolResults={toolResults} />
+      ))}
     </div>
   )
 }
