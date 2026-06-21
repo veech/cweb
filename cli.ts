@@ -24,25 +24,6 @@ if (!args.includes('--no-open') && process.env.THREAD_NO_OPEN !== '1') openBrows
 // ---------------------------------------------------------------------------
 // Function declarations (not const arrows) so they're hoisted above the
 // top-level banner call.
-function INDIGO(s: string) {
-  return `\x1b[38;2;124;134;224m${s}\x1b[0m`
-}
-function GREEN(s: string) {
-  return `\x1b[38;2;74;222;128m${s}\x1b[0m`
-}
-function FG(s: string) {
-  return `\x1b[38;2;247;248;248m${s}\x1b[0m`
-}
-function DIM(s: string) {
-  return `\x1b[38;2;138;143;152m${s}\x1b[0m`
-}
-function BOLD(s: string) {
-  return `\x1b[1m${s}\x1b[0m`
-}
-function UNDER(s: string) {
-  return `\x1b[4m${s}\x1b[0m`
-}
-
 function printBanner(i: StartResult): void {
   const home = homedir()
   const prettyCwd = i.cwd.startsWith(home) ? `~${i.cwd.slice(home.length)}` : i.cwd
@@ -98,4 +79,24 @@ function printHelp(): void {
       ''
     ].join('\n')
   )
+}
+
+// Low-level ANSI color atoms used by the banner/help above.
+function INDIGO(s: string) {
+  return `\x1b[38;2;124;134;224m${s}\x1b[0m`
+}
+function GREEN(s: string) {
+  return `\x1b[38;2;74;222;128m${s}\x1b[0m`
+}
+function FG(s: string) {
+  return `\x1b[38;2;247;248;248m${s}\x1b[0m`
+}
+function DIM(s: string) {
+  return `\x1b[38;2;138;143;152m${s}\x1b[0m`
+}
+function BOLD(s: string) {
+  return `\x1b[1m${s}\x1b[0m`
+}
+function UNDER(s: string) {
+  return `\x1b[4m${s}\x1b[0m`
 }

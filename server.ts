@@ -26,108 +26,59 @@ let config: Config
 // gets its own resumable thread.
 const THREADS_FILE = join(homedir(), '.cweb', 'threads.json')
 
+export type StartResult = {
+  url: string
+  port: number
+  cwd: string
+  permissionMode: string
+  model?: string
+  autoApprove: boolean
+}
+
 // ---------------------------------------------------------------------------
-// Per-directory session ("thread") persistence.
+// Server bootstrap with port fallback (so cweb can run in several dirs at once).
 // ---------------------------------------------------------------------------
-async function readThreads(): Promise<Record<string, string>> {
-  const file = Bun.file(THREADS_FILE)
-  if (!(await file.exists())) return {}
+export function start(options: StartOptions = {}): StartResult {
+  config = {
+    cwd: options.cwd ?? process.env.THREAD_CWD ?? process.cwd(),
+    port: options.port ?? Number(process.env.PORT ?? 4242),
+    permissionMode: options.permissionMode ?? (process.env.THREAD_PERMISSION_MODE as Config['permissionMode']) ?? 'default',
+    model: options.model ?? (process.env.THREAD_MODEL || undefined),
+    autoApprove: options.autoApprove ?? process.env.THREAD_AUTO_APPROVE !== 'false'
+  }
+
+  const serveOptions = {
+    development: { hmr: true, console: true },
+    routes: {
+      '/': index,
+      '/api/session': { GET: handleSession },
+      '/api/history': { GET: handleHistory },
+      '/api/send': { POST: handleSend },
+      '/api/reset': { POST: handleReset }
+    },
+    fetch() {
+      return new Response('Not found', { status: 404 })
+    }
+  } as const
+
+  let server: ReturnType<typeof Bun.serve>
   try {
-    return (await file.json()) ?? {}
+    server = Bun.serve({ port: config.port, ...serveOptions })
   } catch {
-    return {}
+    // Preferred port busy (another cweb, etc.) — grab any free port.
+    server = Bun.serve({ port: 0, ...serveOptions })
   }
-}
+  const port = server.port ?? config.port
+  config.port = port
 
-async function readSessionId(): Promise<string | null> {
-  return (await readThreads())[config.cwd] ?? null
-}
-
-async function writeSessionId(sessionId: string | null): Promise<void> {
-  const threads = await readThreads()
-  if (sessionId) threads[config.cwd] = sessionId
-  else delete threads[config.cwd]
-  await Bun.write(THREADS_FILE, JSON.stringify(threads, null, 2))
-}
-
-// ---------------------------------------------------------------------------
-// Permission gate. Local single-user trust: tools are auto-approved. Set
-// THREAD_AUTO_APPROVE=false to deny, or replace this with an interactive
-// round-trip if you want per-tool prompts surfaced in the UI.
-// ---------------------------------------------------------------------------
-const canUseTool: NonNullable<Options['canUseTool']> = (_toolName, input) =>
-  Promise.resolve<PermissionResult>(config.autoApprove ? { behavior: 'allow', updatedInput: input } : { behavior: 'deny', message: 'Auto-approval disabled (THREAD_AUTO_APPROVE=false).' })
-
-// ---------------------------------------------------------------------------
-// SDKMessage -> ServerEvent[] normalization.
-// ---------------------------------------------------------------------------
-function normalize(msg: SDKMessage): ServerEvent[] {
-  if (msg.type === 'system' && msg.subtype === 'init') return [{ kind: 'init', sessionId: msg.session_id, model: msg.model, cwd: msg.cwd, tools: msg.tools }]
-
-  if (msg.type === 'stream_event') {
-    const event = msg.event as { type?: string; delta?: Record<string, unknown> }
-    if (event.type !== 'content_block_delta' || !event.delta) return []
-    if (event.delta.type === 'text_delta') return [{ kind: 'text_delta', text: String(event.delta.text ?? '') }]
-    if (event.delta.type === 'thinking_delta') return [{ kind: 'thinking_delta', text: String(event.delta.thinking ?? '') }]
-    return []
+  return {
+    url: `http://localhost:${port}`,
+    port,
+    cwd: config.cwd,
+    permissionMode: config.permissionMode,
+    model: config.model,
+    autoApprove: config.autoApprove
   }
-
-  if (msg.type === 'assistant') {
-    const message = msg.message as { id: string; content: unknown }
-    return [{ kind: 'assistant', id: message.id, blocks: blocksFromContent(message.content) }]
-  }
-
-  if (msg.type === 'user') return toolResultEvents((msg.message as { content: unknown }).content)
-
-  if (msg.type === 'result')
-    return [
-      {
-        kind: 'result',
-        isError: msg.is_error,
-        result: msg.subtype === 'success' ? msg.result : msg.subtype,
-        costUsd: msg.total_cost_usd ?? 0,
-        durationMs: msg.duration_ms ?? 0,
-        numTurns: msg.num_turns ?? 0
-      }
-    ]
-
-  return []
-}
-
-function blocksFromContent(content: unknown): Block[] {
-  if (typeof content === 'string') return content ? [{ type: 'text', text: content }] : []
-  if (!Array.isArray(content)) return []
-  const blocks: Block[] = []
-  for (const raw of content) {
-    const b = raw as Record<string, unknown>
-    if (b.type === 'text') blocks.push({ type: 'text', text: String(b.text ?? '') })
-    else if (b.type === 'thinking') blocks.push({ type: 'thinking', text: String(b.thinking ?? '') })
-    else if (b.type === 'tool_use') blocks.push({ type: 'tool_use', id: String(b.id), name: String(b.name), input: b.input })
-  }
-  return blocks
-}
-
-function toolResultEvents(content: unknown): ServerEvent[] {
-  if (!Array.isArray(content)) return []
-  const events: ServerEvent[] = []
-  for (const raw of content) {
-    const b = raw as Record<string, unknown>
-    if (b.type !== 'tool_result') continue
-    events.push({
-      kind: 'tool_result',
-      toolUseId: String(b.tool_use_id),
-      content: stringifyToolContent(b.content),
-      isError: Boolean(b.is_error)
-    })
-  }
-  return events
-}
-
-function stringifyToolContent(content: unknown): string {
-  if (content == null) return ''
-  if (typeof content === 'string') return content
-  if (Array.isArray(content)) return content.map((c: Record<string, unknown>) => (c.type === 'text' ? String(c.text ?? '') : c.type === 'image' ? '[image]' : JSON.stringify(c))).join('\n')
-  return JSON.stringify(content, null, 2)
 }
 
 // ---------------------------------------------------------------------------
@@ -224,14 +175,7 @@ async function handleHistory(): Promise<Response> {
 
     const toolResults = toolResultEvents(content)
     if (toolResults.length) {
-      for (const tr of toolResults)
-        if (tr.kind === 'tool_result')
-          items.push({
-            role: 'tool_result',
-            toolUseId: tr.toolUseId,
-            content: tr.content,
-            isError: tr.isError
-          })
+      for (const tr of toolResults) items.push({ role: 'tool_result', toolUseId: tr.toolUseId, content: tr.content, isError: tr.isError })
       continue
     }
 
@@ -272,56 +216,113 @@ async function handleReset(): Promise<Response> {
 }
 
 // ---------------------------------------------------------------------------
-// Server bootstrap with port fallback (so cweb can run in several dirs at once).
+// SDKMessage -> ServerEvent[] normalization.
 // ---------------------------------------------------------------------------
-export type StartResult = {
-  url: string
-  port: number
-  cwd: string
-  permissionMode: string
-  model?: string
-  autoApprove: boolean
+function normalize(msg: SDKMessage): ServerEvent[] {
+  if (msg.type === 'system' && msg.subtype === 'init') return [{ kind: 'init', sessionId: msg.session_id, model: msg.model, cwd: msg.cwd, tools: msg.tools }]
+
+  if (msg.type === 'stream_event') {
+    const event = msg.event as { type?: string; delta?: Record<string, unknown> }
+    if (event.type !== 'content_block_delta' || !event.delta) return []
+    if (event.delta.type === 'text_delta') return [{ kind: 'text_delta', text: String(event.delta.text ?? '') }]
+    if (event.delta.type === 'thinking_delta') return [{ kind: 'thinking_delta', text: String(event.delta.thinking ?? '') }]
+    return []
+  }
+
+  if (msg.type === 'assistant') {
+    const message = msg.message as { id: string; content: unknown }
+    return [{ kind: 'assistant', id: message.id, blocks: blocksFromContent(message.content) }]
+  }
+
+  if (msg.type === 'user') return toolResultEvents((msg.message as { content: unknown }).content)
+
+  if (msg.type === 'result')
+    return [
+      {
+        kind: 'result',
+        isError: msg.is_error,
+        result: msg.subtype === 'success' ? msg.result : msg.subtype,
+        costUsd: msg.total_cost_usd ?? 0,
+        durationMs: msg.duration_ms ?? 0,
+        numTurns: msg.num_turns ?? 0
+      }
+    ]
+
+  return []
 }
 
-export function start(options: StartOptions = {}): StartResult {
-  config = {
-    cwd: options.cwd ?? process.env.THREAD_CWD ?? process.cwd(),
-    port: options.port ?? Number(process.env.PORT ?? 4242),
-    permissionMode: options.permissionMode ?? (process.env.THREAD_PERMISSION_MODE as Config['permissionMode']) ?? 'default',
-    model: options.model ?? (process.env.THREAD_MODEL || undefined),
-    autoApprove: options.autoApprove ?? process.env.THREAD_AUTO_APPROVE !== 'false'
-  }
-
-  const serveOptions = {
-    development: { hmr: true, console: true },
-    routes: {
-      '/': index,
-      '/api/session': { GET: handleSession },
-      '/api/history': { GET: handleHistory },
-      '/api/send': { POST: handleSend },
-      '/api/reset': { POST: handleReset }
-    },
-    fetch() {
-      return new Response('Not found', { status: 404 })
+function blocksFromContent(content: unknown): Block[] {
+  if (typeof content === 'string') return content ? [{ type: 'text', text: content }] : []
+  if (!Array.isArray(content)) return []
+  const blocks: Block[] = []
+  for (const raw of content) {
+    const b = raw as Record<string, unknown>
+    if (b.type === 'text') {
+      blocks.push({ type: 'text', text: String(b.text ?? '') })
+      continue
     }
-  } as const
+    if (b.type === 'thinking') {
+      blocks.push({ type: 'thinking', text: String(b.thinking ?? '') })
+      continue
+    }
+    if (b.type === 'tool_use') blocks.push({ type: 'tool_use', id: String(b.id), name: String(b.name), input: b.input })
+  }
+  return blocks
+}
 
-  let server: ReturnType<typeof Bun.serve>
+type ToolResultEvent = Extract<ServerEvent, { kind: 'tool_result' }>
+
+function toolResultEvents(content: unknown): ToolResultEvent[] {
+  if (!Array.isArray(content)) return []
+  const events: ToolResultEvent[] = []
+  for (const raw of content) {
+    const b = raw as Record<string, unknown>
+    if (b.type !== 'tool_result') continue
+    events.push({
+      kind: 'tool_result',
+      toolUseId: String(b.tool_use_id),
+      content: stringifyToolContent(b.content),
+      isError: Boolean(b.is_error)
+    })
+  }
+  return events
+}
+
+function stringifyToolContent(content: unknown): string {
+  if (content == null) return ''
+  if (typeof content === 'string') return content
+  if (Array.isArray(content)) return content.map((c: Record<string, unknown>) => (c.type === 'text' ? String(c.text ?? '') : c.type === 'image' ? '[image]' : JSON.stringify(c))).join('\n')
+  return JSON.stringify(content, null, 2)
+}
+
+// ---------------------------------------------------------------------------
+// Permission gate. Local single-user trust: tools are auto-approved. Set
+// THREAD_AUTO_APPROVE=false to deny, or replace this with an interactive
+// round-trip if you want per-tool prompts surfaced in the UI.
+// ---------------------------------------------------------------------------
+const canUseTool: NonNullable<Options['canUseTool']> = (_toolName, input) =>
+  Promise.resolve<PermissionResult>(config.autoApprove ? { behavior: 'allow', updatedInput: input } : { behavior: 'deny', message: 'Auto-approval disabled (THREAD_AUTO_APPROVE=false).' })
+
+// ---------------------------------------------------------------------------
+// Per-directory session ("thread") persistence.
+// ---------------------------------------------------------------------------
+async function readThreads(): Promise<Record<string, string>> {
+  const file = Bun.file(THREADS_FILE)
+  if (!(await file.exists())) return {}
   try {
-    server = Bun.serve({ port: config.port, ...serveOptions })
+    return (await file.json()) ?? {}
   } catch {
-    // Preferred port busy (another cweb, etc.) — grab any free port.
-    server = Bun.serve({ port: 0, ...serveOptions })
+    return {}
   }
-  const port = server.port ?? config.port
-  config.port = port
+}
 
-  return {
-    url: `http://localhost:${port}`,
-    port,
-    cwd: config.cwd,
-    permissionMode: config.permissionMode,
-    model: config.model,
-    autoApprove: config.autoApprove
-  }
+async function readSessionId(): Promise<string | null> {
+  return (await readThreads())[config.cwd] ?? null
+}
+
+async function writeSessionId(sessionId: string | null): Promise<void> {
+  const threads = await readThreads()
+  delete threads[config.cwd]
+  if (sessionId) threads[config.cwd] = sessionId
+  await Bun.write(THREADS_FILE, JSON.stringify(threads, null, 2))
 }
