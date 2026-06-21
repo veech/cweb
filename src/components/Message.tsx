@@ -1,5 +1,6 @@
 import type { Block } from '../../shared/protocol.ts'
 import type { ThreadMessage, ToolResult } from '../lib/thread.ts'
+import { Markdown } from './Markdown.tsx'
 import { ToolBlock } from './ToolBlock.tsx'
 
 interface Props {
@@ -7,8 +8,9 @@ interface Props {
   toolResults: Record<string, ToolResult>
 }
 
-// Shared atoms — reused by the live streaming draft in Thread.tsx so the
-// in-flight turn renders identically to a settled one.
+// Raw streaming text — used by the live draft in Thread.tsx for a typewriter
+// caret feel while a turn is in flight. Settled assistant text renders through
+// <Markdown> instead (see BlockView), so the turn formats once it lands.
 export const proseClass = 'whitespace-pre-wrap break-words text-[15px] leading-7 text-foreground'
 
 // Assistant prose with an optional blinking caret — used for the live draft and
@@ -67,7 +69,7 @@ interface BlockViewProps {
 
 function BlockView(props: BlockViewProps) {
   const { block, toolResults } = props
-  if (block.type === 'text') return <div className={proseClass}>{block.text}</div>
+  if (block.type === 'text') return <Markdown text={block.text} />
 
   if (block.type === 'thinking') return <ThinkingBlock text={block.text} />
 
