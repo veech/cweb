@@ -157,6 +157,19 @@
   animation: caret-blink 1s steps(1) infinite;
 }
 
+/* Inline streaming caret injected into live markdown (see rehypeCaret). Mirrors
+   the composer caret, but sits inline at the end of whatever block is streaming. */
+.stream-caret {
+  display: inline-block;
+  width: 2px;
+  height: 1.05em;
+  margin-left: 1px;
+  transform: translateY(2px);
+  vertical-align: text-bottom;
+  background-color: var(--foreground);
+  animation: caret-blink 1s steps(1) infinite;
+}
+
 /* Markdown code highlighting — highlight.js token classes tuned to the
    Linear-flavored dark theme (the app is always dark). The panel background and
    base text come from the CodeBlock chrome; these only color the tokens. */

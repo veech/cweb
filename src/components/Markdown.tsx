@@ -10,17 +10,20 @@ import { cn } from '../lib/utils.ts'
 
 interface Props {
   text: string
+  // While a turn streams, render a blinking caret inline at the end so the live
+  // draft formats in real time instead of snapping from raw text to markdown.
+  caret?: boolean
 }
 
 // Renders assistant markdown: GFM (tables, task lists, strikethrough, autolinks)
-// plus syntax-highlighted code fences. Memoized on `text` so settled messages
+// plus syntax-highlighted code fences. Memoized on its props so settled messages
 // don't re-parse on every streaming delta of the in-flight turn.
 export const Markdown = memo(function Markdown(props: Props) {
-  const { text } = props
+  const { text, caret } = props
   return (
     <div className="break-words text-[15px] leading-7 text-foreground [&>:first-child]:mt-0 [&>:last-child]:mb-0">
-      <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[[rehypeHighlight, { detect: true, ignoreMissing: true }]]} components={components}>
-        {text}
+      <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[[rehypeHighlight, { detect: true, ignoreMissing: true }], rehypeCaret]} components={components}>
+        {caret ? text + CARET : text}
       </ReactMarkdown>
     </div>
   )
@@ -112,4 +115,37 @@ function codeLang(node: ReactNode): string {
   if (!isValidElement<{ className?: string }>(node)) return ''
   const match = /language-(\w+)/.exec(node.props.className ?? '')
   return match ? match[1] : ''
+}
+
+// Private-use sentinel appended to streaming text. It survives remark/rehype as
+// an ordinary character, so rehypeCaret can find the single occurrence — wherever
+// the stream currently ends — and swap it for a blinking caret element inline.
+const CARET = '\uE000'
+
+interface HastNode {
+  type: string
+  value?: string
+  tagName?: string
+  properties?: Record<string, unknown>
+  children?: HastNode[]
+}
+
+function rehypeCaret() {
+  return (tree: HastNode) => {
+    insertCaret(tree)
+  }
+}
+
+function insertCaret(node: HastNode): boolean {
+  if (!node.children) return false
+  for (let i = 0; i < node.children.length; i++) {
+    const child = node.children[i]
+    if (child.type === 'text' && child.value?.includes(CARET)) {
+      child.value = child.value.replace(CARET, '')
+      node.children.splice(i + 1, 0, { type: 'element', tagName: 'span', properties: { className: ['stream-caret'] }, children: [] })
+      return true
+    }
+    if (child.type === 'element' && insertCaret(child)) return true
+  }
+  return false
 }

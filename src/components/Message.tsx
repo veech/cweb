@@ -8,13 +8,9 @@ interface Props {
   toolResults: Record<string, ToolResult>
 }
 
-// Raw streaming text — used by the live draft in Thread.tsx for a typewriter
-// caret feel while a turn is in flight. Settled assistant text renders through
-// <Markdown> instead (see BlockView), so the turn formats once it lands.
-export const proseClass = 'whitespace-pre-wrap break-words text-[15px] leading-7 text-foreground'
-
-// Assistant prose with an optional blinking caret — used for the live draft and
-// the pending-turn placeholder while a turn is in flight.
+// The live draft and the pending-turn placeholder, rendered as markdown with a
+// blinking caret so the in-flight turn formats in real time — identical to how
+// the settled assistant message renders (see BlockView), just with the caret.
 interface ProseLiveProps {
   text: string
   caret?: boolean
@@ -22,12 +18,7 @@ interface ProseLiveProps {
 
 export function ProseLive(props: ProseLiveProps) {
   const { text, caret } = props
-  return (
-    <div className={proseClass}>
-      {text}
-      {caret && <span className="ml-0.5 inline-block h-[1.05em] w-[2px] translate-y-[2px] animate-caret bg-foreground align-text-bottom" />}
-    </div>
-  )
+  return <Markdown text={text} caret={caret} />
 }
 
 interface ThinkingBlockProps {
