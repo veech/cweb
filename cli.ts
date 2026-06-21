@@ -18,21 +18,22 @@ printBanner(info);
 if (!args.includes("--no-open") && process.env.THREAD_NO_OPEN !== "1") openBrowser(info.url);
 
 // ---------------------------------------------------------------------------
-// Terminal presentation — warm phosphor theme to match the browser UI.
+// Terminal presentation — Linear-flavored theme to match the browser UI:
+// cool near-black, indigo brand accent, green "ready" pointer, cool-gray chrome.
 // ---------------------------------------------------------------------------
 // Function declarations (not const arrows) so they're hoisted above the
 // top-level banner call.
-function AMBER(s: string) {
-  return `\x1b[38;2;240;160;75m${s}\x1b[0m`;
+function INDIGO(s: string) {
+  return `\x1b[38;2;124;134;224m${s}\x1b[0m`;
 }
-function SAGE(s: string) {
-  return `\x1b[38;2;159;176;138m${s}\x1b[0m`;
+function GREEN(s: string) {
+  return `\x1b[38;2;74;222;128m${s}\x1b[0m`;
 }
-function CREAM(s: string) {
-  return `\x1b[38;2;236;227;210m${s}\x1b[0m`;
+function FG(s: string) {
+  return `\x1b[38;2;247;248;248m${s}\x1b[0m`;
 }
 function DIM(s: string) {
-  return `\x1b[38;2;111;104;90m${s}\x1b[0m`;
+  return `\x1b[38;2;138;143;152m${s}\x1b[0m`;
 }
 function BOLD(s: string) {
   return `\x1b[1m${s}\x1b[0m`;
@@ -48,16 +49,16 @@ function printBanner(i: StartResult): void {
 
   const out = [
     "",
-    `  ${AMBER("◆")}  ${BOLD(AMBER("cweb"))}  ${DIM("claude code · browser thread")}`,
+    `  ${INDIGO("◆")}  ${BOLD("cweb")}  ${DIM("claude code · browser thread")}`,
     `  ${DIM("─".repeat(46))}`,
     "",
-    `  ${SAGE("➜")}  ${BOLD("Local")}    ${BOLD(AMBER(UNDER(i.url)))}`,
+    `  ${GREEN("➜")}  ${BOLD("Local")}    ${BOLD(INDIGO(UNDER(i.url)))}`,
     "",
-    `  ${DIM("dir")}      ${CREAM(prettyCwd)}`,
-    `  ${DIM("mode")}     ${CREAM(mode)}`,
-    `  ${DIM("model")}    ${CREAM(i.model ?? "default")}`,
+    `  ${DIM("dir")}      ${FG(prettyCwd)}`,
+    `  ${DIM("mode")}     ${FG(mode)}`,
+    `  ${DIM("model")}    ${FG(i.model ?? "default")}`,
     "",
-    `  ${SAGE("⌁")}  ${DIM("thread starts on your first message · ")}${DIM("ctrl-c to stop")}`,
+    `  ${DIM("⌁")}  ${DIM("thread starts on your first message · ")}${DIM("ctrl-c to stop")}`,
     "",
   ];
   console.log(out.join("\n"));
@@ -81,7 +82,7 @@ function printHelp(): void {
   console.log(
     [
       "",
-      `  ${BOLD(AMBER("cweb"))} — a browser UI for a Claude Code thread, scoped to a directory`,
+      `  ${BOLD(INDIGO("cweb"))} — a browser UI for a Claude Code thread, scoped to a directory`,
       "",
       `  ${BOLD("Usage")}`,
       `    cweb [dir] [options]`,

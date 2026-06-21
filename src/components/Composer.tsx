@@ -1,10 +1,15 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
+import { ArrowUp, Square } from "lucide-react";
+import { Button } from "./ui/button.tsx";
 
 type Props = {
   busy: boolean;
   onSend: (text: string) => void;
   onStop: () => void;
 };
+
+const kbd =
+  "inline-flex min-w-4 justify-center rounded border border-border bg-secondary px-1 py-0.5 font-mono text-[10px] text-muted-foreground shadow-[0_1px_0_rgba(0,0,0,0.35)]";
 
 export function Composer({ busy, onSend, onStop }: Props) {
   const [value, setValue] = useState("");
@@ -33,8 +38,8 @@ export function Composer({ busy, onSend, onStop }: Props) {
   };
 
   return (
-    <div className="composer">
-      <div className="composer__inner">
+    <div className="border-t border-border bg-background/80 px-4 pb-4 pt-3 backdrop-blur">
+      <div className="mx-auto flex w-full max-w-3xl items-end gap-2 rounded-xl border border-input bg-card px-3 py-2 shadow-sm transition-colors focus-within:border-ring/70 focus-within:ring-2 focus-within:ring-ring/25">
         <textarea
           ref={ref}
           value={value}
@@ -43,26 +48,34 @@ export function Composer({ busy, onSend, onStop }: Props) {
           onChange={(e) => setValue(e.target.value)}
           onKeyDown={onKeyDown}
           autoFocus
+          className="max-h-48 flex-1 resize-none bg-transparent py-1.5 text-[15px] leading-relaxed text-foreground outline-none placeholder:text-muted-foreground"
         />
         {busy ? (
-          <button className="composer__send composer__send--stop" onClick={onStop} type="button" title="Stop">
-            ■
-          </button>
+          <Button
+            variant="destructive"
+            size="icon"
+            onClick={onStop}
+            className="size-9 shrink-0 rounded-lg shadow-[0_1px_2px_rgba(0,0,0,0.45),inset_0_1px_0_rgba(255,255,255,0.12)]"
+            title="Stop"
+          >
+            <Square className="size-4 fill-current" />
+          </Button>
         ) : (
-          <button
-            className="composer__send"
+          <Button
+            size="icon"
             onClick={submit}
             disabled={!value.trim()}
-            type="button"
+            className="size-9 shrink-0 rounded-lg shadow-[0_1px_2px_rgba(0,0,0,0.45),inset_0_1px_0_rgba(255,255,255,0.14)] hover:bg-[#6872e5]"
             title="Send"
           >
-            ↑
-          </button>
+            <ArrowUp className="size-4" />
+          </Button>
         )}
       </div>
-      <div className="composer__hint">
+      <div className="mx-auto mt-2 flex w-full max-w-3xl justify-between text-xs text-muted-foreground">
         <span>
-          <kbd>Enter</kbd> send · <kbd>Shift</kbd>+<kbd>Enter</kbd> newline
+          <kbd className={kbd}>Enter</kbd> send · <kbd className={kbd}>Shift</kbd>+
+          <kbd className={kbd}>Enter</kbd> newline
         </span>
         <span>{busy ? "working…" : ""}</span>
       </div>

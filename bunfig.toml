@@ -1,0 +1,7 @@
+# Bun configuration.
+#
+# Register the Tailwind plugin with Bun's static/dev server so `@import
+# "tailwindcss"` in our CSS is compiled by Bun's own bundler — no Vite,
+# webpack, or PostCSS pipeline required.
+[serve.static]
+plugins = ["bun-plugin-tailwind"]

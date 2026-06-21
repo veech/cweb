@@ -9,7 +9,23 @@ export type ThreadMessage = UserMessage | AssistantMessage;
 export type Status = "idle" | "thinking" | "streaming" | "error";
 
 export function newId(): string {
-  return crypto.randomUUID();
+  // crypto.randomUUID exists only in secure contexts (https / localhost). When
+  // the UI is served over a plain-http LAN IP — or in an older webview — it's
+  // undefined. These are just local message ids, so a non-crypto fallback is
+  // fine.
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return `id-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+// A stable identity for a block, used to merge repeated assistant snapshots
+// without duplicating or dropping blocks. Tool calls are identified by their id;
+// text/thinking by their (final) content — partials never reach here, they go
+// through the live draft.
+export function blockSig(b: Block): string {
+  if (b.type === "tool_use") return `tool_use:${b.id}`;
+  return `${b.type}:${b.text}`;
 }
 
 // A short, human-readable summary of a tool call for the collapsed header.

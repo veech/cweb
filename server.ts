@@ -160,10 +160,20 @@ function stringifyToolContent(content: unknown): string {
 // ---------------------------------------------------------------------------
 // Routes
 // ---------------------------------------------------------------------------
-async function handleSend(req: Request): Promise<Response> {
+// Minimal slice of the Bun server handle we need: per-request idle-timeout control.
+type ServerHandle = { timeout(request: Request, seconds: number): void };
+
+async function handleSend(req: Request, server: ServerHandle): Promise<Response> {
   const body = (await req.json().catch(() => ({}))) as { prompt?: string };
   const prompt = body.prompt?.trim();
   if (!prompt) return new Response("empty prompt", { status: 400 });
+
+  // SSE streams go quiet between events — there can be a long gap before the
+  // first token (the resumed session grows every turn) or while a tool runs.
+  // Bun.serve closes idle connections after 10s by default, which surfaced as a
+  // "timeout" once a thread got long enough to cross that gap. Disable the idle
+  // timeout for this streaming request so it stays open for the whole turn.
+  server.timeout(req, 0);
 
   const resume = (await readSessionId()) ?? undefined;
   const abortController = new AbortController();

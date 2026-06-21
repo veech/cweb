@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import type { ServerEvent } from "../shared/protocol.ts";
 import { fetchHistory, fetchSession, resetThread, streamSend } from "./lib/api.ts";
-import type { Status, ThreadMessage, ToolResult } from "./lib/thread.ts";
-import { newId } from "./lib/thread.ts";
+import type { AssistantMessage, Status, ThreadMessage, ToolResult } from "./lib/thread.ts";
+import { blockSig, newId } from "./lib/thread.ts";
 import { StatusBar } from "./components/StatusBar.tsx";
 import { Thread } from "./components/Thread.tsx";
 import { Composer } from "./components/Composer.tsx";
@@ -31,6 +31,7 @@ export function App() {
   const [error, setError] = useState<string | null>(null);
 
   const scrollRef = useRef<HTMLDivElement>(null);
+  const pinnedRef = useRef(true);
   const abortRef = useRef<AbortController | null>(null);
 
   const busy = status === "thinking" || status === "streaming";
@@ -64,10 +65,17 @@ export function App() {
     };
   }, []);
 
-  // Keep pinned to the latest content.
+  // Track whether the view is parked at the bottom (within a small threshold).
+  const handleScroll = () => {
+    const el = scrollRef.current;
+    if (!el) return;
+    pinnedRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 32;
+  };
+
+  // Follow new content only when already parked at the bottom.
   useEffect(() => {
     const el = scrollRef.current;
-    if (el) el.scrollTop = el.scrollHeight;
+    if (el && pinnedRef.current) el.scrollTop = el.scrollHeight;
   }, [messages, live, status]);
 
   const handleEvent = (event: ServerEvent) => {
@@ -86,7 +94,29 @@ export function App() {
     }
     if (event.kind === "assistant") {
       if (event.blocks.length)
-        setMessages((m) => [...m, { id: event.id || newId(), role: "assistant", blocks: event.blocks }]);
+        setMessages((m) => {
+          // A single assistant message (one `msg_` id) can surface more than
+          // once in a turn — e.g. once for its text block, again when a
+          // tool_use block completes. Upsert by id and union blocks by
+          // signature so we neither create a duplicate React key nor
+          // duplicate/drop blocks, regardless of whether the SDK sends
+          // cumulative or incremental snapshots.
+          const idx = event.id ? m.findIndex((x) => x.id === event.id) : -1;
+          if (idx === -1)
+            return [...m, { id: event.id || newId(), role: "assistant", blocks: event.blocks }];
+
+          const existing = m[idx] as AssistantMessage;
+          const seen = new Set(existing.blocks.map(blockSig));
+          const blocks = [...existing.blocks];
+          for (const b of event.blocks)
+            if (!seen.has(blockSig(b))) {
+              seen.add(blockSig(b));
+              blocks.push(b);
+            }
+          const next = [...m];
+          next[idx] = { ...existing, blocks };
+          return next;
+        });
       setLive({ text: "", thinking: "" });
       return;
     }
@@ -160,7 +190,7 @@ export function App() {
   };
 
   return (
-    <div className="app">
+    <div className="grid h-full grid-rows-[auto_1fr_auto] bg-background text-foreground">
       <StatusBar
         cwd={session.cwd}
         model={session.model}
@@ -171,6 +201,7 @@ export function App() {
       />
       <Thread
         scrollRef={scrollRef}
+        onScroll={handleScroll}
         messages={messages}
         toolResults={toolResults}
         live={live}

@@ -1,4 +1,7 @@
+import { Plus } from "lucide-react";
 import type { Status } from "../lib/thread.ts";
+import { cn } from "../lib/utils.ts";
+import { Button } from "./ui/button.tsx";
 
 type Props = {
   cwd: string | null;
@@ -16,49 +19,50 @@ const STATUS_LABEL: Record<Status, string> = {
   error: "error",
 };
 
+const DOT_CLASS: Record<Status, string> = {
+  idle: "bg-emerald-500",
+  thinking: "bg-primary animate-pulse",
+  streaming: "bg-primary animate-pulse",
+  error: "bg-destructive",
+};
+
+function Meta({ label, value }: { label: string; value: string }) {
+  return (
+    <span className="flex items-center gap-1">
+      <span className="text-muted-foreground/60">{label}</span>
+      <span className="font-mono text-foreground/80">{value}</span>
+    </span>
+  );
+}
+
 export function StatusBar({ cwd, model, permissionMode, sessionId, status, onReset }: Props) {
-  const dotClass =
-    status === "error" ? "dot dot--error" : status === "idle" ? "dot dot--idle" : "dot dot--busy";
   const dir = cwd ? cwd.split("/").filter(Boolean).slice(-2).join("/") : "—";
 
   return (
-    <header className="statusbar">
-      <span className="statusbar__mark">
-        <span className="statusbar__diamond">◆</span>
+    <header className="flex items-center gap-3 border-b border-border bg-background/80 px-4 py-2.5 backdrop-blur">
+      <span className="flex items-center gap-2 text-sm font-semibold tracking-tight">
+        <span className="text-primary">◆</span>
         cweb
       </span>
 
-      <span className="statusbar__meta">
-        <span>
-          <b>dir</b> {dir}
-        </span>
-        {model && (
-          <span>
-            <b>model</b> {model}
-          </span>
-        )}
-        {permissionMode && (
-          <span>
-            <b>perm</b> {permissionMode}
-          </span>
-        )}
-        {sessionId && (
-          <span>
-            <b>thread</b> {sessionId.slice(0, 8)}
-          </span>
-        )}
-      </span>
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
+        <Meta label="dir" value={dir} />
+        {model && <Meta label="model" value={model} />}
+        {permissionMode && <Meta label="perm" value={permissionMode} />}
+        {sessionId && <Meta label="thread" value={sessionId.slice(0, 8)} />}
+      </div>
 
-      <span className="statusbar__spacer" />
+      <div className="flex-1" />
 
-      <span className="statusbar__status">
-        <span className={dotClass} />
+      <span className="flex items-center gap-2 text-xs text-muted-foreground">
+        <span className={cn("inline-block size-2 rounded-full", DOT_CLASS[status])} />
         {STATUS_LABEL[status]}
       </span>
 
-      <button className="statusbar__reset" onClick={onReset} type="button">
-        new thread
-      </button>
+      <Button variant="ghost" size="sm" onClick={onReset} className="text-muted-foreground">
+        <Plus className="size-4" />
+        New thread
+      </Button>
     </header>
   );
 }
