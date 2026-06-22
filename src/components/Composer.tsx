@@ -9,8 +9,6 @@ interface Props {
   onStop: () => void
 }
 
-const kbd = 'inline-flex min-w-4 justify-center rounded border border-border bg-secondary px-1 py-0.5 font-mono text-[10px] text-muted-foreground shadow-[0_1px_0_rgba(0,0,0,0.35)]'
-
 export function Composer(props: Props) {
   const { busy, onSend, onStop } = props
   const [value, setValue] = useState('')
@@ -67,12 +65,7 @@ export function Composer(props: Props) {
           </Button>
         )}
       </div>
-      <div className="mx-auto mt-2 flex w-full max-w-3xl justify-between text-xs text-muted-foreground">
-        <span>
-          <kbd className={kbd}>Enter</kbd> send · <kbd className={kbd}>Shift</kbd>+<kbd className={kbd}>Enter</kbd> newline
-        </span>
-        <span>{busy ? 'working…' : ''}</span>
-      </div>
+      {busy && <div className="mx-auto mt-2 flex w-full max-w-3xl justify-end text-xs text-muted-foreground">working…</div>}
     </div>
   )
 }
