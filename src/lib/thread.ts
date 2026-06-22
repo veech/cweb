@@ -1,4 +1,4 @@
-import type { Block } from '../../shared/protocol.ts'
+import type { Block, HistoryItem } from '../../shared/protocol.ts'
 
 export type ToolResult = { content: string; isError: boolean }
 
@@ -7,6 +7,73 @@ export type AssistantMessage = { id: string; role: 'assistant'; blocks: Block[] 
 export type ThreadMessage = UserMessage | AssistantMessage
 
 export type Status = 'idle' | 'thinking' | 'streaming' | 'error'
+
+export type LiveDraft = { text: string; thinking: string }
+
+export type ResultMeta = { costUsd: number; durationMs: number; numTurns: number } | null
+
+export type Session = {
+  sessionId: string | null
+  model: string | null
+  cwd: string | null
+  permissionMode: string | null
+}
+
+export type RestoredThread = {
+  messages: ThreadMessage[]
+  toolResults: Record<string, ToolResult>
+}
+
+export const EMPTY_LIVE: LiveDraft = { text: '', thinking: '' }
+
+export const EMPTY_SESSION: Session = {
+  sessionId: null,
+  model: null,
+  cwd: null,
+  permissionMode: null
+}
+
+export function isBusyStatus(status: Status): boolean {
+  return status === 'thinking' || status === 'streaming'
+}
+
+export function restoreThread(items: HistoryItem[]): RestoredThread {
+  const messages: ThreadMessage[] = []
+  const toolResults: Record<string, ToolResult> = {}
+
+  for (const item of items) {
+    if (item.role === 'user') {
+      messages.push({ id: newId(), role: 'user', text: item.text })
+      continue
+    }
+    if (item.role === 'assistant') {
+      messages.push({ id: newId(), role: 'assistant', blocks: item.blocks })
+      continue
+    }
+    toolResults[item.toolUseId] = { content: item.content, isError: item.isError }
+  }
+
+  return { messages, toolResults }
+}
+
+export function upsertAssistantMessage(messages: ThreadMessage[], id: string | undefined, blocks: Block[]): ThreadMessage[] {
+  const idx = id ? messages.findIndex((x) => x.id === id) : -1
+  if (idx === -1) return [...messages, { id: id || newId(), role: 'assistant', blocks }]
+
+  const existing = messages[idx] as AssistantMessage
+  const seen = new Set(existing.blocks.map(blockSig))
+  const nextBlocks = [...existing.blocks]
+  for (const block of blocks) {
+    const sig = blockSig(block)
+    if (seen.has(sig)) continue
+    seen.add(sig)
+    nextBlocks.push(block)
+  }
+
+  const next = [...messages]
+  next[idx] = { ...existing, blocks: nextBlocks }
+  return next
+}
 
 export function newId(): string {
   // crypto.randomUUID exists only in secure contexts (https / localhost). When
